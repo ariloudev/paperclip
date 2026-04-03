@@ -1,7 +1,17 @@
 FROM node:lts-trixie-slim AS base
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl git \
+  && apt-get install -y --no-install-recommends \
+     ca-certificates curl git \
+     python3 python3-pip python3-venv \
   && rm -rf /var/lib/apt/lists/*
+RUN pip3 install --no-cache-dir --break-system-packages \
+  requests httpx beautifulsoup4 lxml \
+  numpy pandas scipy \
+  pyyaml toml python-dotenv \
+  jinja2 pydantic \
+  matplotlib seaborn pillow \
+  scikit-learn \
+  pytest black ruff
 RUN corepack enable
 
 FROM base AS deps
