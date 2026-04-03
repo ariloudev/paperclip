@@ -1,7 +1,7 @@
 FROM node:lts-trixie-slim AS base
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-     ca-certificates curl git \
+     ca-certificates curl git ripgrep \
      python3 python3-pip python3-venv \
   && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --no-cache-dir --break-system-packages \
