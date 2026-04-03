@@ -32,6 +32,22 @@ REMOTE_DATA="${REMOTE_DATA:-~/.paperclip}"
 REMOTE_DEPLOY="${REMOTE_DEPLOY:-~/paperclip-deploy}"
 IMAGE_NAME="paperclip"
 
+if [[ "${SYNC:-}" == "1" ]]; then
+  RED='\033[1;31m' NC='\033[0m'
+  echo ""
+  echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${NC}"
+  echo -e "${RED}!!  WARNING: SYNC=1 will OVERWRITE remote data on the mini.    !!${NC}"
+  echo -e "${RED}!!  This replaces $REMOTE_DATA with your local ~/.paperclip.   !!${NC}"
+  echo -e "${RED}!!  Any data on the mini that is not on this machine is LOST.  !!${NC}"
+  echo -e "${RED}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${NC}"
+  echo ""
+  read -r -p "Continue with sync? [y/N] " confirm
+  if [[ "$confirm" != [yY] ]]; then
+    echo "Aborted."
+    exit 1
+  fi
+fi
+
 # ── 1. Stop running instance ────────────────────────────────────────────────
 echo "==> Stopping running instance on mini (if any)..."
 ssh "$MINI_SSH" bash <<'REMOTE_STOP'
