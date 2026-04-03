@@ -2,10 +2,12 @@
 # Deploy Paperclip to the Mini (Colima) via Docker context "mini".
 #
 # What it does:
-#   1. Builds the Docker image locally
-#   2. Transfers the image to the mini via docker save/load
-#   3. Syncs ~/.paperclip to the mini (one-time seed of local data)
-#   4. Deploys via docker compose on the mini over SSH
+#   1. Gracefully stops the running instance on the mini
+#   2. Builds the Docker image locally
+#   3. Transfers the image to the mini via docker save/load
+#   4. Syncs ~/.paperclip to the mini (one-time seed of local data)
+#   5. Prepares deploy directory and .env on the mini
+#   6. Deploys via docker compose on the mini over SSH
 #
 # Prerequisites:
 #   - Docker context "mini" exists (docker context create mini --docker "host=ssh://openclaw@mini")
@@ -30,7 +32,18 @@ REMOTE_DATA="${REMOTE_DATA:-~/.paperclip}"
 REMOTE_DEPLOY="${REMOTE_DEPLOY:-~/paperclip-deploy}"
 IMAGE_NAME="paperclip"
 
-# ── 1. Build ────────────────────────────────────────────────────────────────
+# ── 1. Stop running instance ────────────────────────────────────────────────
+echo "==> Stopping running instance on mini (if any)..."
+ssh "$MINI_SSH" bash <<'REMOTE_STOP'
+if [ -f ~/paperclip-deploy/docker-compose.yml ]; then
+  cd ~/paperclip-deploy
+  docker compose down --timeout 30 2>/dev/null && echo "   Stopped." || echo "   Nothing running."
+else
+  echo "   No prior deployment found."
+fi
+REMOTE_STOP
+
+# ── 2. Build ────────────────────────────────────────────────────────────────
 if [[ "${SKIP_BUILD:-}" != "1" ]]; then
   echo "==> Building Docker image locally..."
   docker build -t "$IMAGE_NAME" "$PROJECT_DIR"
@@ -38,11 +51,11 @@ else
   echo "==> Skipping build (SKIP_BUILD=1)"
 fi
 
-# ── 2. Transfer image ──────────────────────────────────────────────────────
+# ── 3. Transfer image ──────────────────────────────────────────────────────
 echo "==> Transferring image to mini..."
 docker save "$IMAGE_NAME" | docker --context "$DOCKER_CTX" load
 
-# ── 3. Sync data ───────────────────────────────────────────────────────────
+# ── 4. Sync data ───────────────────────────────────────────────────────────
 if [[ "${SYNC:-}" == "1" ]]; then
   echo "==> Syncing ~/.paperclip → $MINI_SSH:$REMOTE_DATA ..."
   rsync -az --exclude '.DS_Store' "$HOME/.paperclip/" "$MINI_SSH:$REMOTE_DATA/"
@@ -59,7 +72,7 @@ else
   echo "==> Skipping data sync (use SYNC=1 to sync)"
 fi
 
-# ── 4. Prepare remote deploy directory ──────────────────────────────────────
+# ── 5. Prepare remote deploy directory ──────────────────────────────────────
 echo "==> Setting up deploy directory on mini..."
 
 # Generate BETTER_AUTH_SECRET on first deploy; preserve on subsequent ones
@@ -93,7 +106,7 @@ fi
 # Copy compose file to mini
 scp -q "$PROJECT_DIR/docker-compose.deploy.yml" "$MINI_SSH:$REMOTE_DEPLOY/docker-compose.yml"
 
-# ── 5. Deploy ──────────────────────────────────────────────────────────────
+# ── 6. Deploy ──────────────────────────────────────────────────────────────
 echo "==> Starting Paperclip on mini..."
 ssh "$MINI_SSH" bash <<REMOTE_UP
 cd ~/paperclip-deploy
